@@ -1,7 +1,8 @@
 (ns luminus.http-server
   (:require [clojure.tools.logging :as log]
             [immutant.web :as immutant]
-            [clojure.set :refer [rename-keys]]))
+            [clojure.set :refer [rename-keys]]
+            [luminus.async :as async]))
 
 (defn run-options [opts]
   (merge
@@ -14,13 +15,14 @@
         (select-keys
           (-> #'immutant/run meta :valid-options)))))
 
-(defn start [{:keys [handler port] :as opts}]
-  (try
-    (log/info "starting HTTP server on port" port)
-    (immutant/run handler (run-options opts))
-    (catch Throwable t
-      (log/error t (str "server failed to start on port " port))
-      (throw t))))
+(defn start [{:keys [handler port async?] :as opts}]
+  (let [handler (if async? (async/wrap handler) handler)]
+    (try
+      (log/info "starting HTTP server on port" port)
+      (immutant/run handler (run-options opts))
+      (catch Throwable t
+        (log/error t (str "server failed to start on port " port))
+        (throw t)))))
 
 (defn wrap-handler [server handler opts]
   (immutant/run handler (merge server opts)))
